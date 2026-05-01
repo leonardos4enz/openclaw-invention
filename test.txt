@@ -1,0 +1,5 @@
+Hello from Einstein! 🚀
+
+This is a test file created by the Einstein AI assistant running in OpenClaw.
+
+ Leonardo - te saludamos desde tu contenedor Docker!

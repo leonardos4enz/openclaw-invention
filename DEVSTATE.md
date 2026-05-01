@@ -1,12 +1,16 @@
 # ERP-Compras Development State
 
 ## Current Status
-- **Phase:** 2 - Auth (CRITICAL ISSUE - users not in production DB)
-- **Step:** Fix login - seed API created, UI modernized
-- **Last updated:** 2026-05-01T03:52:00Z
+- **Phase:** 2 - Auth - BUILD PASSING, Playwright tests exist but can't run in this environment (missing system Chrome deps)
+- **Step:** Build passing, tests created, ready to push and test on Vercel
+- **Last updated:** 2026-05-01T04:12:00Z
+
+## Build Status
+✅ `npm run build` - PASSING locally
+⚠️ Playwright tests - Created but cannot run locally (missing libglib-2.0.so.0 system dependency)
 
 ## URGENT ISSUE
-Production DB at `/tmp/prod.db` gets wiped on Vercel cold starts. 
+Production DB at `/tmp/prod.db` gets wiped on Vercel cold starts.
 Seed API created at `/api/seed` - user must click "Inicializar base de datos" button on login page.
 UI login page has been redesigned with modern corporate look.
 

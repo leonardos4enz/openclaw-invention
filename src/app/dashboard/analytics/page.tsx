@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
+                <Tooltip formatter={(value) => `$${Number(value ?? 0).toLocaleString()}`} />
                 <Bar dataKey="amount" fill="#3B82F6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {departmentData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
                   cy="50%"
                   outerRadius={80}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {requisicionStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />

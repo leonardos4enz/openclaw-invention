@@ -1,0 +1,392 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+
+interface Item {
+  description: string
+  quantity: number
+  unitPrice: number
+  category: string
+}
+
+export default function NuevaCotizacionPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const requisicionId = searchParams.get('requisicionId')
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [requisicionData, setRequisicionData] = useState<any>(null)
+  const [items, setItems] = useState<Item[]>([
+    { description: '', quantity: 1, unitPrice: 0, category: '' }
+  ])
+
+  const [formData, setFormData] = useState({
+    providerName: '',
+    providerContact: '',
+    providerEmail: '',
+    currency: 'USD',
+    deliveryDate: '',
+    deliveryTerms: '',
+    paymentTerms: '',
+    validUntil: '',
+    notes: '',
+    requisicionId: ''
+  })
+
+  useEffect(() => {
+    if (requisicionId) {
+      setFormData(prev => ({ ...prev, requisicionId }))
+      fetchRequisicion(requisicionId)
+    }
+  }, [requisicionId])
+
+  const fetchRequisicion = async (id: string) => {
+    try {
+      const res = await fetch(`/api/compras/requisiciones/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setRequisicionData(data)
+        if (data.items) {
+          setItems(data.items.map((i: any) => ({
+            description: i.description || '',
+            quantity: i.quantity || 1,
+            unitPrice: i.unitPrice || 0,
+            category: i.category || ''
+          })))
+        }
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const calculateSubtotal = () => {
+    return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+  }
+
+  const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
+    const newItems = [...items]
+    newItems[index] = { ...newItems[index], [field]: value }
+    setItems(newItems)
+  }
+
+  const addItem = () => {
+    setItems([...items, { description: '', quantity: 1, unitPrice: 0, category: '' }])
+  }
+
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index))
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    if (!formData.providerName) {
+      setError('Nombre del proveedor es requerido')
+      setLoading(false)
+      return
+    }
+
+    if (requisicionId && !formData.requisicionId) {
+      setError('Requisición es requerida')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const subtotal = calculateSubtotal()
+      const tax = subtotal * 0.16 // 16% IVA
+      const total = subtotal + tax
+
+      const res = await fetch('/api/compras/cotizaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          items,
+          subtotal,
+          tax,
+          total
+        })
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al crear cotización')
+      }
+
+      router.push('/dashboard/compras/cotizaciones')
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <Link
+          href="/dashboard/compras/cotizaciones"
+          className="text-gray-500 hover:text-gray-700"
+        >
+          ← Cancelar y volver
+        </Link>
+        <h2 className="text-2xl font-bold text-gray-900 mt-2">Nueva Cotización</h2>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Info Card */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Proveedor</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre / Razón Social *
+              </label>
+              <input
+                type="text"
+                value={formData.providerName}
+                onChange={(e) => setFormData({ ...formData, providerName: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contacto
+              </label>
+              <input
+                type="text"
+                value={formData.providerContact}
+                onChange={(e) => setFormData({ ...formData, providerContact: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.providerEmail}
+                onChange={(e) => setFormData({ ...formData, providerEmail: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Moneda
+              </label>
+              <select
+                value={formData.currency}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="USD">USD - Dólar</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="MXN">MXN - Peso Mexicano</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha de Entrega
+              </label>
+              <input
+                type="date"
+                value={formData.deliveryDate}
+                onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Válida Hasta
+              </label>
+              <input
+                type="date"
+                value={formData.validUntil}
+                onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Términos de Entrega
+              </label>
+              <input
+                type="text"
+                value={formData.deliveryTerms}
+                onChange={(e) => setFormData({ ...formData, deliveryTerms: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: En oficina, Transporte propio"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Términos de Pago
+              </label>
+              <input
+                type="text"
+                value={formData.paymentTerms}
+                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: 30 días, Contra entrega"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notas adicionales
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                rows={2}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Items */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Artículos</h3>
+            <button
+              type="button"
+              onClick={addItem}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              + Agregar artículo
+            </button>
+          </div>
+
+          {requisicionData && (
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm">
+              Requisición asociada: <span className="font-medium">{requisicionData.folio}</span>
+              - {requisicionData.description}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {items.map((item, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1">Descripción</label>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Precio Unitario</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unitPrice}
+                      onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">Categoría</label>
+                      <input
+                        type="text"
+                        value={item.category}
+                        onChange={(e) => handleItemChange(index, 'category', e.target.value)}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                      />
+                    </div>
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="text-red-600 hover:text-red-800 p-2"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right mt-2 text-sm text-gray-600">
+                  Subtotal: ${(item.quantity * item.unitPrice).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Subtotal:</span>
+              <span>${calculateSubtotal().toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>IVA (16%):</span>
+              <span>${(calculateSubtotal() * 0.16).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+              <span className="text-lg font-semibold text-gray-900">Total:</span>
+              <span className="text-2xl font-bold text-blue-600">
+                ${(calculateSubtotal() * 1.16).toLocaleString()} {formData.currency}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-4">
+          <Link
+            href="/dashboard/compras/cotizaciones"
+            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+          >
+            Cancelar
+          </Link>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400"
+          >
+            {loading ? 'Creando...' : 'Crear Cotización'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}

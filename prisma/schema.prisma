@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          String    @default("solicitante") // admin, comprador, supervisor, director, cfo, viewer, solicitante
+  department    String?
+  approvalLimit Float     @default(0)
+  hireDate      DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  requisicionesCreated Requisicion[]
+  approvals            Approval[]
+  delegationsFrom      Delegation[] @relation("DelegationFrom")
+  delegationsTo        Delegation[] @relation("DelegationTo")
+}
+
+model Delegation {
+  id          String    @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  fromUser    User      @relation("DelegationFrom", fields: [fromUserId], references: [id])
+  toUser      User      @relation("DelegationTo", fields: [toUserId], references: [id])
+}
+
+model Requisicion {
+  id              String    @id @default(cuid())
+  folio           String    @unique
+  createdById     String
+  department      String
+  description     String
+  items           String    // JSON string of items array
+  totalAmount     Float
+  currency        String    @default("USD")
+  urgency         String    @default("normal") // low, normal, high, urgent
+  status          String    @default("draft") // draft, pending, approved, rejected, cancelled
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdBy      User       @relation(fields: [createdById], references: [id])
+  approvals      Approval[]
+  cotizaciones   Cotizacion[]
+  ordenesCompra  OrdenCompra[]
+}
+
+model Approval {
+  id              String    @id @default(cuid())
+  requisicionId   String
+  approverId      String
+  level           Int       // 1-6 based on approval thresholds
+  status          String    @default("pending") // pending, approved, rejected, escalated
+  comments        String?
+  amountApproved  Float?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  requisicion     Requisicion @relation(fields: [requisicionId], references: [id])
+  approver        User        @relation(fields: [approverId], references: [id])
+}
+
+model Cotizacion {
+  id              String    @id @default(cuid())
+  requisicionId   String
+  providerName    String
+  providerContact String?
+  providerEmail   String?
+  items           String    // JSON string
+  subtotal        Float
+  tax             Float     @default(0)
+  total           Float
+  currency        String    @default("USD")
+  deliveryDate    DateTime?
+  deliveryTerms   String?
+  paymentTerms    String?
+  validUntil      DateTime?
+  status          String    @default("draft") // draft, sent, received, accepted, rejected
+  notes           String?
+  attachmentUrl   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  requisicion     Requisicion @relation(fields: [requisicionId], references: [id])
+}
+
+model OrdenCompra {
+  id              String    @id @default(cuid())
+  requisicionId   String
+  cotizacionId    String?
+  ocNumber        String    @unique
+  providerName    String
+  providerEmail   String?
+  providerAddress String?
+  items           String    // JSON string
+  subtotal        Float
+  tax             Float     @default(0)
+  total           Float
+  currency        String    @default("USD")
+  deliveryDate    DateTime?
+  paymentTerms    String?
+  status          String    @default("draft") // draft, sent, partially_received, received, cancelled
+  notes           String?
+  sentAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  requisicion     Requisicion @relation(fields: [requisicionId], references: [id])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  entityType  String    // requisicion, cotizacion, orden_compra, approval, user
+  entityId    String
+  action      String    // created, updated, approved, rejected, cancelled, delegated
+  userId      String?
+  details     String?   // JSON string with additional details
+  createdAt   DateTime  @default(now())
+}
+
+model Settings {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  value     String
+  updatedAt DateTime  @updatedAt
+}
